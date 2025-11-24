@@ -1,0 +1,123 @@
+import numpy as np
+import random
+import math
+
+def objective_function(x):
+    return 20 + sum(x_i**2 - 10 * math.cos(2 * math.pi * x_i) for x_i in x)
+
+
+class GEP:
+    def __init__(self, population_size, gene_length, max_generations, mutation_rate=0.1, crossover_rate=0.8, elitism=1):
+        self.population_size = population_size
+        self.gene_length = gene_length
+        self.max_generations = max_generations
+        self.mutation_rate = mutation_rate
+        self.crossover_rate = crossover_rate
+        self.elitism = elitism
+
+        # Initialize the population (chromosomes are represented as linear arrays)
+        self.population = [self.generate_chromosome() for _ in range(population_size)]
+
+    def generate_chromosome(self):
+        """ Generate a random chromosome (linear string representing genes) """
+        return [random.choice(['+', '-', '*', '/', 'x', 'sin', 'cos', 'log', 'exp']) for _ in range(self.gene_length)]
+
+    def evaluate_fitness(self, chromosome):
+        """ Evaluate the fitness of a chromosome by converting it to an expression and calculating the error """
+        expression = self.decode_chromosome(chromosome)
+        return self.calculate_error(expression)
+
+    def decode_chromosome(self, chromosome):
+        """ Convert a chromosome into a function (expression tree) """
+        # For simplicity, assume the chromosome represents a valid mathematical expression
+        expression = " ".join(chromosome)
+        return expression
+
+    def calculate_error(self, expression):
+        error = 0
+        data_points = np.random.uniform(-5.12, 5.12, (10, 2))  # 10 random data points for 2D Rastrigin function
+        for point in data_points:
+            predicted_value = self.evaluate_expression(expression, point)
+            true_value = objective_function(point)
+            error += (predicted_value - true_value) ** 2
+        return error
+
+    def evaluate_expression(self, expression, point):
+        try:
+            # Replace x1 and x2 with point values
+            expression = expression.replace('x', str(point[0]))  # x1
+            expression = expression.replace('y', str(point[1]))  # x2
+            return eval(expression)
+        except Exception as e:
+            return float('inf')  # Return a large error if evaluation fails
+
+    def crossover(self, parent1, parent2):
+        """ Perform one-point crossover on two parents """
+        if random.random() > self.crossover_rate:
+            return parent1, parent2  # No crossover
+
+        # Select a random crossover point
+        point = random.randint(0, self.gene_length - 1)
+        child1 = parent1[:point] + parent2[point:]
+        child2 = parent2[:point] + parent1[point:]
+        return child1, child2
+
+    def mutate(self, chromosome):
+        """ Mutate a chromosome by randomly changing one gene """
+        if random.random() < self.mutation_rate:
+            point = random.randint(0, self.gene_length - 1)
+            chromosome[point] = random.choice(['+', '-', '*', '/', 'x', 'sin', 'cos', 'log', 'exp'])
+
+    def select(self, population, fitness):
+        """ Select individuals for the next generation using tournament selection """
+        new_population = []
+        for _ in range(self.population_size - self.elitism):
+            tournament = random.sample(list(zip(population, fitness)), 3)
+            winner = min(tournament, key=lambda x: x[1])
+            new_population.append(winner[0])
+        return new_population
+
+    def evolve(self):
+        """ Evolve the population over generations """
+        for generation in range(self.max_generations):
+            fitness = [self.evaluate_fitness(chromosome) for chromosome in self.population]
+            best_chromosome = self.population[np.argmin(fitness)]
+            best_fitness = min(fitness)
+
+            # Print current generation's best fitness
+            print(f"Generation {generation + 1}: Best Fitness = {best_fitness}")
+
+            # Select the best individuals (elitism)
+            new_population = self.select(self.population, fitness)
+
+            # Perform crossover and mutation to create the next generation
+            next_generation = []
+            while len(next_generation) < self.population_size - self.elitism:
+                parent1, parent2 = random.sample(new_population, 2)
+                child1, child2 = self.crossover(parent1, parent2)
+                self.mutate(child1)
+                self.mutate(child2)
+                next_generation.extend([child1, child2])
+
+            # Retain the best individuals
+            next_generation.extend(sorted(list(zip(self.population, fitness)), key=lambda x: x[1])[:self.elitism])
+
+            # Update the population
+            self.population = [x[0] for x in sorted(list(zip(self.population, fitness)), key=lambda x: x[1])[:self.elitism]] + next_generation
+
+        # Print the final best solution
+        fitness = [self.evaluate_fitness(chromosome) for chromosome in self.population]
+        best_chromosome = self.population[np.argmin(fitness)]
+        best_fitness = min(fitness)
+        print("\nOptimization Completed!")
+        print(f"Best Solution: {best_chromosome}")
+        print(f"Best Fitness: {best_fitness}")
+
+
+if __name__ == "__main__":
+    population_size = 50
+    gene_length = 10
+    max_generations = 100
+
+    gep = GEP(population_size=population_size, gene_length=gene_length, max_generations=max_generations)
+    gep.evolve()
