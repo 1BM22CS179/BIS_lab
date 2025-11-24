@@ -1,0 +1,82 @@
+import random
+
+# Objective function: f(x) = x^2 - 5x + 6
+def objective_function(x):
+    return x**2 - 5*x + 6
+
+# Parameters for Genetic Algorithm
+POPULATION_SIZE = 10   
+GENE_LENGTH = 10        
+MUTATION_RATE = 0.1     
+CROSSOVER_RATE = 0.7    
+MAX_GENERATIONS = 100   
+ELITISM_COUNT = 2       
+
+def create_individual():
+    return [random.randint(0, 1) for _ in range(GENE_LENGTH)]
+
+def decode_chromosome(chromosome):
+    return int("".join(str(bit) for bit in chromosome), 2)
+
+def fitness(individual):
+    x = decode_chromosome(individual)  # decode chromosome to a value of x
+    return objective_function(x)  # the fitness is the objective function's value
+
+def tournament_selection(population):
+    tournament_size = 3
+    selected = random.sample(population, tournament_size)
+    selected.sort(key=lambda x: fitness(x))  # Sort by fitness (lower is better)
+    return selected[0]  # Return the best individual
+
+# Crossover: Single-point crossover
+def crossover(parent1, parent2):
+    if random.random() > CROSSOVER_RATE:
+        return parent1.copy(), parent2.copy()  # No crossover
+    crossover_point = random.randint(1, GENE_LENGTH - 1)
+    offspring1 = parent1[:crossover_point] + parent2[crossover_point:]
+    offspring2 = parent2[:crossover_point] + parent1[crossover_point:]
+    return offspring1, offspring2
+
+# Mutation: Flip a random bit in the chromosome
+def mutate(individual):
+    for i in range(GENE_LENGTH):
+        if random.random() < MUTATION_RATE:
+            individual[i] = 1 - individual[i]  # Flip the bit
+
+# Main Genetic Algorithm Function
+def genetic_algorithm():
+    # Step 1: Create the initial population
+    population = [create_individual() for _ in range(POPULATION_SIZE)]
+
+    for generation in range(MAX_GENERATIONS):
+        # Step 2.1: Select the top individuals (elitism)
+        population.sort(key=lambda x: fitness(x))  # Sort by fitness (lower is better)
+        next_generation = population[:ELITISM_COUNT]  # Elitism: Keep the best individuals
+
+        while len(next_generation) < POPULATION_SIZE:
+            parent1 = tournament_selection(population)
+            parent2 = tournament_selection(population)
+
+            offspring1, offspring2 = crossover(parent1, parent2)
+            mutate(offspring1)
+            mutate(offspring2)
+
+            next_generation.append(offspring1)
+            next_generation.append(offspring2)
+
+        population = next_generation
+
+        best_individual = population[0]
+        best_fitness = fitness(best_individual)
+        print(f"Generation {generation + 1}: Best Fitness = {best_fitness}, Best Solution (x) = {decode_chromosome(best_individual)}")
+
+        if best_fitness < 0.1:  # Threshold for the fitness (can be adjusted)
+            break
+
+    best_individual = population[0]
+    best_solution = decode_chromosome(best_individual)
+    print("\nOptimization completed.")
+    print(f"Best solution: x = {best_solution}, Objective value: {fitness(best_individual)}")
+
+if __name__ == "__main__":
+    genetic_algorithm()
