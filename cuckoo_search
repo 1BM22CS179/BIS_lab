@@ -1,0 +1,91 @@
+import numpy as np
+import random
+
+def objective_function(x):
+    # Example: Sphere function (sum of squares)
+    return sum(x_i**2 for x_i in x)
+
+
+class CuckooSearch:
+    def __init__(self, n_nests, dim, max_iter, pa=0.25, lb=-5, ub=5):
+        """
+        Parameters:
+        n_nests: Number of nests (solutions)
+        dim: Dimension of the search space (number of variables)
+        max_iter: Maximum number of iterations
+        pa: Probability of a nest being abandoned
+        lb, ub: Lower and upper bounds of the search space
+        """
+        self.n_nests = n_nests
+        self.dim = dim
+        self.max_iter = max_iter
+        self.pa = pa
+        self.lb = lb
+        self.ub = ub
+        
+        # Initialize nests (solutions)
+        self.nests = np.random.uniform(lb, ub, (n_nests, dim))
+        self.fitness = np.apply_along_axis(objective_function, 1, self.nests)
+
+        # Find the best solution initially
+        self.best_nest = self.nests[np.argmin(self.fitness)]
+        self.best_fitness = np.min(self.fitness)
+
+    def generate_new_solution(self, nest, best_nest):
+        """ Generate new solution by Lévy flight """
+        # Lévy flight distribution for generating a new solution
+        alpha = 1.5  # Scale parameter
+        beta = 1.5   # Step size
+        sigma = (gamma(1 + alpha) * np.sin(np.pi * alpha / 2) / 
+                 (gamma((1 + alpha) / 2) * alpha * 2 ** ((alpha - 1) / 2))) ** (1 / alpha)
+
+        s = np.random.normal(0, sigma, self.dim)  # Generate step sizes
+        new_solution = nest + s * (nest - best_nest)  # Step size times distance from best nest
+
+        # Check boundaries
+        new_solution = np.clip(new_solution, self.lb, self.ub)
+
+        return new_solution
+
+    def search(self):
+        """ Perform the cuckoo search optimization """
+        for iteration in range(self.max_iter):
+            # Generate new nests using Lévy flights
+            new_nests = np.copy(self.nests)
+
+            for i in range(self.n_nests):
+                # Generate new solution for nest i
+                new_nests[i] = self.generate_new_solution(self.nests[i], self.best_nest)
+
+            # Calculate fitness of new nests
+            new_fitness = np.apply_along_axis(objective_function, 1, new_nests)
+
+            # Abandon worst nests with probability pa and replace them with new ones
+            for i in range(self.n_nests):
+                if random.random() < self.pa:
+                    self.nests[i] = new_nests[i]
+                    self.fitness[i] = new_fitness[i]
+
+            # Update the best solution
+            min_fitness_index = np.argmin(self.fitness)
+            if self.fitness[min_fitness_index] < self.best_fitness:
+                self.best_fitness = self.fitness[min_fitness_index]
+                self.best_nest = self.nests[min_fitness_index]
+
+            # Print progress
+            print(f"Iteration {iteration + 1}: Best Fitness = {self.best_fitness}")
+
+        print("\nOptimization Completed!")
+        print(f"Best Solution: {self.best_nest}")
+        print(f"Best Objective Value: {self.best_fitness}")
+
+if __name__ == "__main__":
+    # Parameters for Cuckoo Search
+    n_nests = 25  # Number of nests (solutions)
+    dim = 5       # Number of dimensions (variables)
+    max_iter = 100  # Maximum number of iterations
+    lb = -5  # Lower bound of the search space
+    ub = 5   # Upper bound of the search space
+
+    cuckoo_search = CuckooSearch(n_nests=n_nests, dim=dim, max_iter=max_iter, lb=lb, ub=ub)
+    cuckoo_search.search()
