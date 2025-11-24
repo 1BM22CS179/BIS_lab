@@ -1,0 +1,98 @@
+import numpy as np
+import random
+from multiprocessing import Pool
+
+def objective_function(x):
+    return np.sum(x**2)
+
+
+def cell_search(cell_info):
+    position, lb, ub, neighborhood, max_iter = cell_info
+    best_position = np.copy(position)
+    best_fitness = objective_function(position)
+    
+    # Local search: Randomly perturb the position
+    for _ in range(max_iter):
+        new_position = best_position + np.random.uniform(-1, 1, position.shape)  # Random perturbation
+        new_position = np.clip(new_position, lb, ub)  # Apply bounds
+        new_fitness = objective_function(new_position)
+        
+        # Update the best position within the cell
+        if new_fitness < best_fitness:
+            best_position = new_position
+            best_fitness = new_fitness
+
+    # Communicate with neighbors and update based on global search
+    for neighbor in neighborhood:
+        neighbor_fitness = objective_function(neighbor)
+        if neighbor_fitness < best_fitness:
+            best_position = neighbor
+            best_fitness = neighbor_fitness
+
+    return best_position, best_fitness
+
+
+class ParallelCellularAlgorithm:
+    def __init__(self, n_cells, dim, lb, ub, max_iter=100, neighborhood_size=1, max_local_iter=10):
+        self.n_cells = n_cells
+        self.dim = dim
+        self.lb = lb
+        self.ub = ub
+        self.max_iter = max_iter
+        self.neighborhood_size = neighborhood_size
+        self.max_local_iter = max_local_iter
+
+        # Initialize the cells' positions randomly
+        self.cells = np.random.uniform(lb, ub, (n_cells, dim))
+        
+        # Compute the fitness of each cell
+        self.fitness = np.apply_along_axis(objective_function, 1, self.cells)
+
+    def update_neighborhood(self):
+        """ Update the neighborhood for each cell """
+        neighborhood = []
+        for i in range(self.n_cells):
+            # Choose neighbors (can be modified for specific neighborhood structure)
+            left = (i - 1) % self.n_cells
+            right = (i + 1) % self.n_cells
+            neighborhood.append([self.cells[left], self.cells[i], self.cells[right]])
+        return neighborhood
+
+    def run(self):
+        """ Run the Parallel Cellular Algorithm """
+        for iteration in range(self.max_iter):
+            neighborhood = self.update_neighborhood()
+
+            # Prepare the input for parallel processing
+            cell_info = [(self.cells[i], self.lb, self.ub, neighborhood[i], self.max_local_iter) for i in range(self.n_cells)]
+
+            # Parallel computation of cell searches using multiprocessing
+            with Pool() as pool:
+                results = pool.map(cell_search, cell_info)
+
+            # Update the cells based on the results from all neighbors
+            for i in range(self.n_cells):
+                self.cells[i], self.fitness[i] = results[i]
+
+            # Find the best global solution
+            best_idx = np.argmin(self.fitness)
+            best_solution = self.cells[best_idx]
+            best_fitness = self.fitness[best_idx]
+
+            print(f"Iteration {iteration + 1}: Best Fitness = {best_fitness}")
+
+        print("\nOptimization Completed!")
+        print(f"Best Solution: {best_solution}")
+        print(f"Best Objective Value: {best_fitness}")
+
+if __name__ == "__main__":
+    # Parameters for PCA
+    n_cells = 30  # Number of cells (solutions)
+    dim = 5       # Number of dimensions (variables)
+    lb = -5       # Lower bound of the search space
+    ub = 5        # Upper bound of the search space
+    max_iter = 100  # Maximum number of iterations
+    max_local_iter = 10  # Maximum iterations for local search in each cell
+
+    pca = ParallelCellularAlgorithm(n_cells=n_cells, dim=dim, lb=lb, ub=ub, max_iter=max_iter, max_local_iter=max_local_iter)
+    pca.run()
