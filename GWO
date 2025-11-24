@@ -1,0 +1,98 @@
+import numpy as np
+
+def objective_function(x):
+    # Example: Sphere function (sum of squares)
+    return sum(x_i**2 for x_i in x)
+
+class GreyWolfOptimizer:
+    def __init__(self, n_wolves, dim, max_iter, lb=-5, ub=5):
+        """
+        Parameters:
+        n_wolves: Number of wolves (population size)
+        dim: Dimension of the search space (number of variables)
+        max_iter: Maximum number of iterations
+        lb, ub: Lower and upper bounds of the search space
+        """
+        self.n_wolves = n_wolves
+        self.dim = dim
+        self.max_iter = max_iter
+        self.lb = lb
+        self.ub = ub
+
+        # Initialize positions of wolves randomly in the search space
+        self.positions = np.random.uniform(lb, ub, (n_wolves, dim))
+        self.fitness = np.apply_along_axis(objective_function, 1, self.positions)
+
+        # Initial best wolves (alpha, beta, delta)
+        self.alpha_position = None
+        self.beta_position = None
+        self.delta_position = None
+        self.alpha_score = float("inf")
+        self.beta_score = float("inf")
+        self.delta_score = float("inf")
+
+    def update_positions(self, a):
+        """ Update positions of wolves based on GWO update rules """
+        for i in range(self.n_wolves):
+            # Update the position of the current wolf (Omega wolf)
+            r1 = np.random.random(self.dim)
+            r2 = np.random.random(self.dim)
+            A = 2 * a * r1 - a  # coefficient A
+            C = 2 * r2  # coefficient C
+
+            # Update position of each wolf
+            D_alpha = np.abs(C * self.alpha_position - self.positions[i])  # Distance to alpha wolf
+            D_beta = np.abs(C * self.beta_position - self.positions[i])    # Distance to beta wolf
+            D_delta = np.abs(C * self.delta_position - self.positions[i])  # Distance to delta wolf
+
+            # Update the wolf's position using the formula
+            X1 = self.alpha_position - A * D_alpha
+            X2 = self.beta_position - A * D_beta
+            X3 = self.delta_position - A * D_delta
+
+            # New position of the wolf
+            self.positions[i] = (X1 + X2 + X3) / 3
+
+            # Apply bounds (clip the position)
+            self.positions[i] = np.clip(self.positions[i], self.lb, self.ub)
+
+    def update_best(self):
+        """ Update the best solutions (alpha, beta, delta) """
+        for i in range(self.n_wolves):
+            fitness = objective_function(self.positions[i])
+
+            if fitness < self.alpha_score:
+                self.alpha_score = fitness
+                self.alpha_position = np.copy(self.positions[i])
+
+            elif fitness < self.beta_score:
+                self.beta_score = fitness
+                self.beta_position = np.copy(self.positions[i])
+
+            elif fitness < self.delta_score:
+                self.delta_score = fitness
+                self.delta_position = np.copy(self.positions[i])
+
+    def optimize(self):
+        """ Perform Grey Wolf Optimization """
+        for iteration in range(self.max_iter):
+            a = 2 - iteration * (2 / self.max_iter)  # Decreasing value of a from 2 to 0
+            self.update_positions(a)
+            self.update_best()
+
+            print(f"Iteration {iteration + 1}: Best Fitness = {self.alpha_score}")
+
+        print("\nOptimization Completed!")
+        print(f"Best Solution: {self.alpha_position}")
+        print(f"Best Objective Value: {self.alpha_score}")
+
+if __name__ == "__main__":
+    # Parameters for GWO
+    n_wolves = 30  # Number of wolves (solutions)
+    dim = 5        # Number of dimensions (variables)
+    max_iter = 100  # Maximum number of iterations
+    lb = -5         # Lower bound of the search space
+    ub = 5          # Upper bound of the search space
+
+    gwo = GreyWolfOptimizer(n_wolves=n_wolves, dim=dim, max_iter=max_iter, lb=lb, ub=ub)
+    gwo.optimize()
