@@ -1,0 +1,121 @@
+import random
+import math
+
+def distance(city1, city2):
+    return math.dist(city1, city2)
+
+
+class ACO_TSP:
+    def __init__(self, cities, num_ants=20, alpha=1.0, beta=5.0, rho=0.5, Q=100, iterations=100):
+        self.cities = cities
+        self.num_ants = num_ants
+        self.alpha = alpha     # pheromone importance
+        self.beta = beta       # distance importance
+        self.rho = rho         # evaporation rate
+        self.Q = Q             # pheromone constant
+        self.iterations = iterations
+        self.num_cities = len(cities)
+
+        # Initialize pheromone matrix
+        self.pheromones = [[1 for _ in range(self.num_cities)] for _ in range(self.num_cities)]
+
+        # Precompute distance matrix
+        self.dist_matrix = [
+            [distance(cities[i], cities[j]) for j in range(self.num_cities)]
+            for i in range(self.num_cities)
+        ]
+
+
+    def construct_solution(self):
+        start = random.randint(0, self.num_cities - 1)
+        tour = [start]
+        unvisited = set(range(self.num_cities))
+        unvisited.remove(start)
+
+        while unvisited:
+            current = tour[-1]
+            next_city = self.choose_next_city(current, unvisited)
+            tour.append(next_city)
+            unvisited.remove(next_city)
+
+        return tour
+
+
+    def choose_next_city(self, current, unvisited):
+        pheromone = []
+        attractiveness = []
+
+        for next_city in unvisited:
+            pheromone.append(self.pheromones[current][next_city] ** self.alpha)
+            attractiveness.append((1 / self.dist_matrix[current][next_city]) ** self.beta)
+
+        weights = [pheromone[i] * attractiveness[i] for i in range(len(unvisited))]
+        total = sum(weights)
+        probs = [w / total for w in weights]
+
+        return random.choices(list(unvisited), probs)[0]
+
+
+
+    def tour_length(self, tour):
+        length = 0
+        for i in range(len(tour)):
+            length += self.dist_matrix[tour[i]][tour[(i + 1) % len(tour)]]
+        return length
+
+
+    def update_pheromones(self, all_tours):
+        # Evaporation
+        for i in range(self.num_cities):
+            for j in range(self.num_cities):
+                self.pheromones[i][j] *= (1 - self.rho)
+
+        # Deposit new pheromone
+        for tour in all_tours:
+            L = self.tour_length(tour)
+            pheromone_amount = self.Q / L
+
+            for i in range(len(tour)):
+                a = tour[i]
+                b = tour[(i + 1) % len(tour)]
+                self.pheromones[a][b] += pheromone_amount
+                self.pheromones[b][a] += pheromone_amount
+
+
+    def run(self):
+        best_tour = None
+        best_length = float("inf")
+
+        for it in range(self.iterations):
+            all_tours = [self.construct_solution() for _ in range(self.num_ants)]
+
+            # Update pheromones
+            self.update_pheromones(all_tours)
+
+            # Check best tour
+            for tour in all_tours:
+                L = self.tour_length(tour)
+                if L < best_length:
+                    best_length = L
+                    best_tour = tour
+
+            print(f"Iteration {it+1} | Best length = {best_length}")
+
+        print("\nBest tour found:", best_tour)
+        print("Tour length:", best_length)
+        return best_tour, best_length
+
+
+if __name__ == "__main__":
+    # Example: Coordinates of cities (you can add more)
+    cities = [
+        (0, 0),
+        (2, 4),
+        (5, 3),
+        (1, 6),
+        (7, 2),
+        (6, 6)
+    ]
+
+    aco = ACO_TSP(cities, num_ants=30, iterations=50)
+    aco.run()
