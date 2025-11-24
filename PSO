@@ -1,0 +1,68 @@
+import random
+import math
+
+def objective_function(position):
+    # Example: f(x, y) = x^2 + y^2 + 4
+    x, y = position
+    return x**2 + y**2 + 4
+
+class Particle:
+    def __init__(self, bounds):
+        dim = len(bounds)
+        self.position = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(dim)]
+        self.velocity = [random.uniform(-1, 1) for _ in range(dim)]
+        self.best_position = list(self.position)
+        self.best_value = objective_function(self.position)
+
+
+def pso(objective_function, bounds, num_particles=30, max_iter=100,
+        w=0.7, c1=1.5, c2=1.5):
+
+    dim = len(bounds)
+    swarm = [Particle(bounds) for _ in range(num_particles)]
+
+    # Global best
+    gbest_position = swarm[0].position
+    gbest_value = objective_function(gbest_position)
+
+    for iteration in range(max_iter):
+        for particle in swarm:
+
+            # Update particle best
+            value = objective_function(particle.position)
+            if value < particle.best_value:
+                particle.best_value = value
+                particle.best_position = list(particle.position)
+
+            # Update global best
+            if value < gbest_value:
+                gbest_value = value
+                gbest_position = list(particle.position)
+
+        # Update velocity and position of each particle
+        for particle in swarm:
+            for i in range(dim):
+                r1, r2 = random.random(), random.random()
+
+                # Velocity update
+                cognitive = c1 * r1 * (particle.best_position[i] - particle.position[i])
+                social = c2 * r2 * (gbest_position[i] - particle.position[i])
+                particle.velocity[i] = w * particle.velocity[i] + cognitive + social
+
+                # Position update
+                particle.position[i] += particle.velocity[i]
+
+                # Apply bounds
+                particle.position[i] = max(bounds[i][0], min(bounds[i][1], particle.position[i]))
+
+        print(f"Iteration {iteration+1} | Best value = {gbest_value:.6f}, Position = {gbest_position}")
+
+    print("\nOptimization Complete!")
+    print("Best Position =", gbest_position)
+    print("Best Objective Value =", gbest_value)
+
+if __name__ == "__main__":
+    # Bounds for variables: (min, max)
+    bounds = [(-10, 10), (-10, 10)]   # for function f(x, y)
+
+    pso(objective_function, bounds, num_particles=30, max_iter=50)
